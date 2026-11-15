@@ -39,7 +39,15 @@ class LiquidGlass extends StatefulWidget {
     this.joinGroup = true,
     this.rimColor,
     this.rimWidth,
+    this.dragExitDistance = defaultDragExitDistance,
   });
+
+  /// Default for [dragExitDistance], the same distance UIKit controls use.
+  static const double defaultDragExitDistance = 70;
+
+  /// How far the finger may move outside the glass before it lets go and
+  /// springs back. Use [double.infinity] to keep following the finger.
+  final double dragExitDistance;
 
   /// The widget shown on the glass. It defines the size of the glass.
   final Widget child;
@@ -143,8 +151,6 @@ class _LiquidGlassState extends State<LiquidGlass>
   final ValueNotifier<Offset?> _pointer = ValueNotifier(null);
   late final Listenable _motion = Listenable.merge([_press, _hover, _dx, _dy]);
 
-  static const dragExitDistance = 70.0;
-
   int? _activePointer;
   bool _outside = false;
   Offset _downPosition = Offset.zero;
@@ -235,7 +241,7 @@ class _LiquidGlassState extends State<LiquidGlass>
     final delta = event.localPosition - _downPosition;
     _pointer.value = event.localPosition;
     final outside = !(Offset.zero & _size)
-        .inflate(dragExitDistance)
+        .inflate(widget.dragExitDistance)
         .contains(event.localPosition);
     if (outside != _outside) {
       _outside = outside;
@@ -751,6 +757,7 @@ extension LiquidGlassExtension on Widget {
     bool joinGroup = true,
     Color? rimColor,
     double? rimWidth,
+    double dragExitDistance = LiquidGlass.defaultDragExitDistance,
   }) => LiquidGlass(
     key: key,
     shape: shape,
@@ -769,6 +776,7 @@ extension LiquidGlassExtension on Widget {
     joinGroup: joinGroup,
     rimColor: rimColor,
     rimWidth: rimWidth,
+    dragExitDistance: dragExitDistance,
     child: this,
   );
 }
