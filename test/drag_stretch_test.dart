@@ -154,4 +154,49 @@ void main() {
     expect(taps, 0);
     expect(scroll.offset, greaterThan(0));
   }, variant: ios);
+
+  testWidgets('dragExitDistance infinity keeps following the finger', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      fixed(
+        const SizedBox(
+          width: 44,
+          height: 44,
+        ).liquidGlass(dragExitDistance: double.infinity),
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(LiquidGlass)),
+    );
+    for (var i = 0; i < 15; i++) {
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await frames(tester, 40);
+    final far = glassTransform(tester);
+    expect(far.storage[5], greaterThan(far.storage[0] * 1.15));
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }, variant: ios);
+
+  testWidgets('a short dragExitDistance lets go sooner', (tester) async {
+    await tester.pumpWidget(
+      fixed(
+        const SizedBox(width: 44, height: 44).liquidGlass(dragExitDistance: 10),
+      ),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(LiquidGlass)),
+    );
+    for (var i = 0; i < 4; i++) {
+      await gesture.moveBy(const Offset(0, 15));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await frames(tester, 40);
+    final away = glassTransform(tester);
+    expect(away.storage[5], closeTo(away.storage[0], 0.02));
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }, variant: ios);
 }

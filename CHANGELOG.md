@@ -1,3 +1,12 @@
+## 0.4.2 — Adjustable drag exit and smoother finger tracking
+
+- New `dragExitDistance` on `LiquidGlass` and `.liquidGlass()` (default 70,
+  `LiquidGlass.defaultDragExitDistance`): how far the finger may leave the
+  glass before it lets go. `double.infinity` keeps following the finger.
+- Smoother drag: when the glass is retargeted every pointer move, the spring
+  carries over the time already elapsed instead of restarting from zero, so
+  the glass no longer lags behind a fast finger.
+
 ## 0.4.1 — API docs and all platforms on pub.dev
 
 - API documentation for every public class, constructor and property

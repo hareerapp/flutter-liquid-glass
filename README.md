@@ -26,7 +26,7 @@ components.
 
 ```yaml
 dependencies:
-  liquid_design: ^0.4.1
+  liquid_design: ^0.4.2
 ```
 
 ```dart
@@ -340,6 +340,13 @@ finger, follows it with a rubber-band pull and stretches toward it. Letting
 go within 70 pt of the button still taps it (like `UIControl`); drag further
 and the glass springs back and the tap is cancelled. Inside a list, a
 vertical drag scrolls the list instead.
+
+Change how far the finger may leave the glass with `dragExitDistance`
+(70 by default; `double.infinity` keeps following the finger):
+
+```dart
+const Icon(Icons.share).liquidGlass(dragExitDistance: double.infinity)
+```
 
 ### Segmented control
 
