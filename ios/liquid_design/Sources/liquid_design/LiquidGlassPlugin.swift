@@ -72,6 +72,34 @@ final class LiquidGlassViewFactory: NSObject, FlutterPlatformViewFactory {
 
 protocol LiquidGlassUpdatable: AnyObject {
   func update(_ args: [String: Any])
+  var onAppearance: ((Any) -> Void)? { get set }
+}
+
+@MainActor
+enum LiquidGlassAppearance {
+  static func name(of view: UIView) -> String? {
+    #if compiler(>=6.2)
+      if #available(iOS 26.0, *) {
+        switch view.traitCollection.userInterfaceStyle {
+        case .dark: return "dark"
+        case .light: return "light"
+        default: return nil
+        }
+      }
+    #endif
+    return nil
+  }
+
+  static func observe(_ effectView: UIVisualEffectView, report: @escaping (String) -> Void) {
+    #if compiler(>=6.2)
+      if #available(iOS 26.0, *) {
+        effectView.contentView.registerForTraitChanges([UITraitUserInterfaceStyle.self]) {
+          (view: UIView, _: UITraitCollection) in
+          if let name = name(of: view) { report(name) }
+        }
+      }
+    #endif
+  }
 }
 
 final class LiquidGlassPlatformView: NSObject, FlutterPlatformView {
@@ -82,6 +110,9 @@ final class LiquidGlassPlatformView: NSObject, FlutterPlatformView {
     glassView = view
     channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
     super.init()
+    view.onAppearance = { [weak channel] value in
+      channel?.invokeMethod("appearance", arguments: value)
+    }
     channel.setMethodCallHandler { [weak self] call, result in
       guard call.method == "update", let args = call.arguments as? [String: Any] else {
         result(FlutterMethodNotImplemented)
@@ -337,6 +368,8 @@ final class LiquidGlassPathMaskView: UIView {
 final class LiquidGlassView: UIView, LiquidGlassUpdatable {
   private var effectView = UIVisualEffectView(effect: nil)
   private var config: LiquidGlassConfig?
+  var onAppearance: ((Any) -> Void)?
+  private var lastAppearance: String?
   private var pathHost: UIViewController?
   private var pathMask: LiquidGlassPathMaskView?
   private let hostMask = CAShapeLayer()
@@ -347,6 +380,7 @@ final class LiquidGlassView: UIView, LiquidGlassUpdatable {
     isUserInteractionEnabled = false
     clipsToBounds = true
     effectView.frame = bounds
+    watch(effectView)
     effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     addSubview(effectView)
   }
@@ -375,6 +409,7 @@ final class LiquidGlassView: UIView, LiquidGlassUpdatable {
           insertSubview(fresh, aboveSubview: effectView)
           effectView.removeFromSuperview()
           effectView = fresh
+          watch(fresh)
         }
         LiquidGlassEffects.setEffect(new, previous: nil, on: effectView)
         effectView.layoutIfNeeded()
@@ -492,6 +527,33 @@ final class LiquidGlassView: UIView, LiquidGlassUpdatable {
     }
     LiquidGlassEffects.setCornerRadius(radius, on: effectView)
     LiquidGlassEffects.setCornerRadius(radius, on: self)
+    reportAppearance()
+  }
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    lastAppearance = nil
+    reportAppearance()
+  }
+
+  private func watch(_ view: UIVisualEffectView) {
+    LiquidGlassAppearance.observe(view) { [weak self, weak view] name in
+      guard let self, view === self.effectView else { return }
+      self.send(name)
+    }
+  }
+
+  private func reportAppearance() {
+    guard window != nil, !effectView.isHidden,
+      let name = LiquidGlassAppearance.name(of: effectView.contentView)
+    else { return }
+    send(name)
+  }
+
+  private func send(_ name: String) {
+    guard name != lastAppearance else { return }
+    lastAppearance = name
+    onAppearance?(name)
   }
 }
 
@@ -502,6 +564,8 @@ final class LiquidGlassGroupView: UIView, LiquidGlassUpdatable {
   private var builtInWindow = false
   private let shadowMask = CALayer()
   private var members: [Int: UIVisualEffectView] = [:]
+  private var appearances: [Int: String] = [:]
+  var onAppearance: ((Any) -> Void)?
   private var looks: [Int: LiquidGlassConfig] = [:]
   private var spacing: CGFloat = -1
 
@@ -553,6 +617,7 @@ final class LiquidGlassGroupView: UIView, LiquidGlassUpdatable {
     }
     members.removeAll()
     looks.removeAll()
+    appearances.removeAll()
   }
 
   private func updateShadowMask(_ shapes: [(CGRect, CGFloat)]) {
@@ -666,6 +731,10 @@ final class LiquidGlassGroupView: UIView, LiquidGlassUpdatable {
         }
         container.contentView.addSubview(view)
         members[id] = view
+        LiquidGlassAppearance.observe(view) { [weak self, weak view] name in
+          guard let self, let view, self.members[id] === view else { return }
+          self.send(id, name)
+        }
         if animated {
           UIView.animate(withDuration: 0.3) {
             view.effect = LiquidGlassEffects.effect(for: config)
@@ -681,13 +750,29 @@ final class LiquidGlassGroupView: UIView, LiquidGlassUpdatable {
 
     for (id, view) in members where !seen.contains(id) {
       members[id] = nil
+      appearances[id] = nil
       looks[id] = nil
       view.removeFromSuperview()
     }
+    reportAppearances()
+  }
+
+  private func reportAppearances() {
+    guard window != nil else { return }
+    for (id, view) in members {
+      if let name = LiquidGlassAppearance.name(of: view.contentView) { send(id, name) }
+    }
+  }
+
+  private func send(_ id: Int, _ name: String) {
+    guard appearances[id] != name else { return }
+    appearances[id] = name
+    onAppearance?(["id": id, "appearance": name])
   }
 }
 
 final class LiquidGlassLensView: UIView, LiquidGlassUpdatable {
+  var onAppearance: ((Any) -> Void)?
   private let lens = UIView()
   private var glass = UIVisualEffectView(effect: nil)
   private var config: LiquidGlassConfig?

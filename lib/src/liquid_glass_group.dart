@@ -10,6 +10,7 @@ import 'liquid_glass_service.dart';
 import 'liquid_glass_settings.dart';
 import 'liquid_glass_shape.dart';
 import 'liquid_glass_theme.dart';
+import 'native_glass_view.dart' show glassBrightness;
 
 /// Draws every glass inside [child] with one native container, so nearby
 /// shapes melt together and fewer native views are created.
@@ -18,7 +19,7 @@ class LiquidGlassGroup extends StatefulWidget {
   const LiquidGlassGroup({
     super.key,
     this.spacing = 20,
-    this.overflow = 24,
+    this.overflow = 48,
     required this.child,
   });
 
@@ -168,9 +169,21 @@ class _LiquidGlassGroupState extends State<LiquidGlassGroup>
   }
 
   void _onCreated(int id) {
-    _channel = MethodChannel('${_viewType}_$id');
+    _channel = MethodChannel('${_viewType}_$id')
+      ..setMethodCallHandler(_onNativeCall);
     _lastSent = null;
     markDirty();
+  }
+
+  Future<void> _onNativeCall(MethodCall call) async {
+    if (call.method != 'appearance' || _disposed) return;
+    final args = call.arguments;
+    if (args is! Map) return;
+    final brightness = glassBrightness(args['appearance']);
+    if (brightness == null) return;
+    for (final slot in _slots) {
+      if (slot.id == args['id']) slot.widget.onAppearance?.call(brightness);
+    }
   }
 
   @override
@@ -241,11 +254,13 @@ class GlassGroupSlot extends StatefulWidget {
     required this.group,
     required this.shape,
     required this.params,
+    this.onAppearance,
   });
 
   final GlassGroupHandle group;
   final LiquidGlassShape shape;
   final Map<String, Object?> params;
+  final ValueChanged<Brightness>? onAppearance;
 
   @override
   State<GlassGroupSlot> createState() => GlassGroupSlotState();

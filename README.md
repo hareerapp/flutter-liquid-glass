@@ -26,7 +26,7 @@ components.
 
 ```yaml
 dependencies:
-  liquid_design: ^0.4.2
+  liquid_design: ^0.4.3
 ```
 
 ```dart
@@ -348,6 +348,48 @@ Change how far the finger may leave the glass with `dragExitDistance`
 const Icon(Icons.share).liquidGlass(dragExitDistance: double.infinity)
 ```
 
+#### App bar and header buttons
+
+Buttons in a bar should hold on to the finger like iOS 26 bar buttons, even
+when the header sits inside a scroll view. Use `captureDrag`, or
+`LiquidGlassPressDetector` for your own glass widgets:
+
+```dart
+LiquidGlassButton.icon(
+  captureDrag: true,
+  onPressed: openSearch,
+  icon: const Icon(Icons.search),
+)
+
+LiquidGlassPressDetector(
+  onPressed: goBack,
+  child: const SizedBox.square(dimension: 44, child: BackArrowIcon()),
+).liquidGlass(
+  shape: const LiquidGlassShape.circle(),
+  dragExitDistance: double.infinity,
+)
+```
+
+The press fires when the finger is lifted inside the button. Keep the plain
+button inside scrolling lists, so a vertical drag still scrolls the list.
+
+#### Icons that adapt to the background
+
+iOS 26 glass turns dark over dark content (a photo, a black banner) and
+light over light content, whatever the app theme. Icons and text inside the
+glass that use the default colour switch to white or black with it. Icons
+with their own colour can follow it too:
+
+```dart
+Icon(
+  Icons.arrow_back,
+  color: LiquidGlassAppearance.adapt(context, colors.textPrimary),
+)
+```
+
+`LiquidGlassAppearance.maybeOf(context)` gives the live appearance, and
+`adaptiveForeground: false` on `LiquidGlass` keeps colours unchanged.
+
 ### Segmented control
 
 <p align="center"><img src="https://raw.githubusercontent.com/hareerapp/fluter-liquid-glass/main/doc/readme/segmented.png" width="600" alt="Segmented control with a glass selection"></p>
@@ -430,7 +472,8 @@ LiquidGlassNavigationBar(
 ```
 
 The selection pill slides with a liquid stretch. Pressing lifts it into a
-glass lens that follows the finger (with haptic ticks) and snaps on release.
+glass lens that follows the finger (with haptic ticks) and snaps on release. Icons and labels stay
+sharp on top of the lens, like the iOS 26 tab bar.
 
 #### Icons only
 

@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'glass_spring.dart';
+import 'liquid_glass_appearance.dart';
 import 'liquid_glass_group.dart';
 import 'liquid_glass_service.dart';
 import 'liquid_glass_settings.dart';
@@ -40,7 +41,15 @@ class LiquidGlass extends StatefulWidget {
     this.rimColor,
     this.rimWidth,
     this.dragExitDistance = defaultDragExitDistance,
+    this.adaptiveForeground = true,
   });
+
+  /// Whether icons and text without their own colour switch between dark
+  /// and light as the native glass adapts to the content behind it.
+  ///
+  /// The live appearance is always available to the child through
+  /// [LiquidGlassAppearance].
+  final bool adaptiveForeground;
 
   /// Default for [dragExitDistance], the same distance UIKit controls use.
   static const double defaultDragExitDistance = 70;
@@ -149,6 +158,7 @@ class _LiquidGlassState extends State<LiquidGlass>
     vsync: this,
   );
   final ValueNotifier<Offset?> _pointer = ValueNotifier(null);
+  final ValueNotifier<Brightness?> _appearance = ValueNotifier(null);
   late final Listenable _motion = Listenable.merge([_press, _hover, _dx, _dy]);
 
   int? _activePointer;
@@ -190,6 +200,7 @@ class _LiquidGlassState extends State<LiquidGlass>
       c.dispose();
     }
     _pointer.dispose();
+    _appearance.dispose();
     super.dispose();
   }
 
@@ -338,8 +349,13 @@ class _LiquidGlassState extends State<LiquidGlass>
         'brightness': brightness?.name ?? 'system',
       };
       glass = group != null
-          ? GlassGroupSlot(group: group, shape: shape, params: params)
-          : NativeGlassView(params: params);
+          ? GlassGroupSlot(
+              group: group,
+              shape: shape,
+              params: params,
+              onAppearance: _onAppearance,
+            )
+          : NativeGlassView(params: params, onAppearance: _onAppearance);
     } else if (LiquidGlassService.isNativePlatform ||
         settings.fallback == LiquidGlassFallback.frosted) {
       glass = FlutterGlass(
@@ -356,9 +372,15 @@ class _LiquidGlassState extends State<LiquidGlass>
       glass = null;
     }
 
+    final child = GlassAppearanceScope(
+      appearance: native ? _appearance : null,
+      adaptive: widget.adaptiveForeground,
+      child: widget.child,
+    );
+
     Widget result;
     if (glass == null) {
-      result = widget.child;
+      result = child;
     } else {
       final interactive =
           settings.interactive && settings.interactionStrength > 0;
@@ -383,7 +405,7 @@ class _LiquidGlassState extends State<LiquidGlass>
                 ),
               ),
             ),
-          widget.child,
+          child,
         ],
       );
 
@@ -411,6 +433,10 @@ class _LiquidGlassState extends State<LiquidGlass>
     }
 
     return result;
+  }
+
+  void _onAppearance(Brightness brightness) {
+    if (mounted) _appearance.value = brightness;
   }
 
   Matrix4 _transform() {
@@ -758,6 +784,7 @@ extension LiquidGlassExtension on Widget {
     Color? rimColor,
     double? rimWidth,
     double dragExitDistance = LiquidGlass.defaultDragExitDistance,
+    bool adaptiveForeground = true,
   }) => LiquidGlass(
     key: key,
     shape: shape,
@@ -777,6 +804,7 @@ extension LiquidGlassExtension on Widget {
     rimColor: rimColor,
     rimWidth: rimWidth,
     dragExitDistance: dragExitDistance,
+    adaptiveForeground: adaptiveForeground,
     child: this,
   );
 }

@@ -8,11 +8,14 @@ class NativePlatformGlass extends StatefulWidget {
     super.key,
     required this.viewType,
     required this.params,
+    this.onAppearance,
   });
 
   final String viewType;
 
   final Map<String, Object?> params;
+
+  final ValueChanged<Brightness>? onAppearance;
 
   @override
   State<NativePlatformGlass> createState() => _NativePlatformGlassState();
@@ -37,8 +40,15 @@ class _NativePlatformGlassState extends State<NativePlatformGlass> {
   }
 
   void _onCreated(int id) {
-    _channel = MethodChannel('${widget.viewType}_$id');
+    _channel = MethodChannel('${widget.viewType}_$id')
+      ..setMethodCallHandler(_onNativeCall);
     _sync();
+  }
+
+  Future<void> _onNativeCall(MethodCall call) async {
+    if (call.method != 'appearance' || !mounted) return;
+    final brightness = glassBrightness(call.arguments);
+    if (brightness != null) widget.onAppearance?.call(brightness);
   }
 
   void _sync() {
@@ -91,12 +101,23 @@ class _NativePlatformGlassState extends State<NativePlatformGlass> {
   }
 }
 
+Brightness? glassBrightness(Object? value) => switch (value) {
+  'dark' => Brightness.dark,
+  'light' => Brightness.light,
+  _ => null,
+};
+
 class NativeGlassView extends StatelessWidget {
-  const NativeGlassView({super.key, required this.params});
+  const NativeGlassView({super.key, required this.params, this.onAppearance});
 
   final Map<String, Object?> params;
 
+  final ValueChanged<Brightness>? onAppearance;
+
   @override
-  Widget build(BuildContext context) =>
-      NativePlatformGlass(viewType: 'liquid_design/glass', params: params);
+  Widget build(BuildContext context) => NativePlatformGlass(
+    viewType: 'liquid_design/glass',
+    params: params,
+    onAppearance: onAppearance,
+  );
 }

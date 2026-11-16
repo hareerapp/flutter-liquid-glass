@@ -461,7 +461,6 @@ class _GlassSelectionBarState extends State<GlassSelectionBar>
               ),
             ),
           ),
-          ...items,
           if (_nativeLens && _lensReady)
             Positioned(
               key: const ValueKey('native-lens'),
@@ -493,6 +492,7 @@ class _GlassSelectionBarState extends State<GlassSelectionBar>
                 ),
               ),
             ),
+          ...items,
           Positioned(
             key: const ValueKey('touch'),
             left: _glassLeft,
