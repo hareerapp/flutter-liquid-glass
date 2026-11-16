@@ -475,6 +475,46 @@ The selection pill slides with a liquid stretch. Pressing lifts it into a
 glass lens that follows the finger (with haptic ticks) and snaps on release. Icons and labels stay
 sharp on top of the lens, like the iOS 26 tab bar.
 
+#### System tab bar (fastest)
+
+Set `native: true` and, on iOS 26, the bar becomes the real system tab bar
+(`UITabBar`): glass, lens, icons, labels and badges are all drawn by iOS,
+and Flutter draws nothing on top of the native glass. It scrolls as fast as
+a fully native bar and behaves exactly like the system one. Elsewhere it
+falls back to the Flutter bar above.
+
+```dart
+Scaffold(
+  extendBody: true,
+  body: ListView(/* ... */),
+  bottomNavigationBar: LiquidGlassNavigationBar(
+    native: true,
+    currentIndex: tab,
+    onTap: (i) => setState(() => tab = i),
+    items: const [
+      LiquidGlassNavItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+      LiquidGlassNavItem(icon: Icon(Icons.shopping_bag), label: 'Cart', badge: '3'),
+    ],
+  ),
+)
+```
+
+Place it at the bottom edge at full width. Icons must be `Icon` widgets;
+`badge`, `activeColor`, `inactiveColor`, `badgeColor` and `nativeFontAsset`
+are passed to iOS.
+
+Scrolling a 400-item list on an iPhone with iOS 27 (profile build, 95th
+percentile of three runs, 120 Hz):
+
+| Bar | Frame build | Rendering |
+|---|---|---|
+| `adaptive_platform_ui` native tab bar | 1.04 ms | 0.98 ms |
+| `LiquidGlassNavigationBar` (Flutter bar) | 1.03 ms | 1.53 ms |
+| `LiquidGlassNavigationBar(native: true)` | **1.01 ms** | **0.92 ms** |
+
+The Flutter bar costs more to render because its icons are drawn on top of
+the native glass; use it when you need a custom look.
+
 #### Icons only
 
 <p align="center"><img src="https://raw.githubusercontent.com/hareerapp/fluter-liquid-glass/main/doc/readme/nav_icons.png" width="600" alt="Navigation bar with icons only"></p>

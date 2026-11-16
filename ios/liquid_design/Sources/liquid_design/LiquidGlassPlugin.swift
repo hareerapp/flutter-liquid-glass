@@ -11,6 +11,10 @@ public class LiquidGlassPlugin: NSObject, FlutterPlugin {
         withId: kind.rawValue
       )
     }
+    registrar.register(
+      LiquidGlassTabBarFactory(registrar: registrar),
+      withId: LiquidGlassTabBarFactory.viewType
+    )
     let channel = FlutterMethodChannel(name: "liquid_design", binaryMessenger: messenger)
     registrar.addMethodCallDelegate(LiquidGlassPlugin(), channel: channel)
   }

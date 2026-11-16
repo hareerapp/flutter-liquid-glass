@@ -154,7 +154,7 @@ class _LiquidGlassGroupState extends State<LiquidGlassGroup>
         last.length == members.length) {
       var same = true;
       for (var i = 0; i < members.length && same; i++) {
-        same = mapEquals(last[i], members[i]);
+        same = identical(last[i], members[i]) || mapEquals(last[i], members[i]);
       }
       if (same) return;
     }
@@ -311,16 +311,35 @@ class GlassGroupSlotState extends State<GlassGroupSlot> {
         : widget.shape.resolveRadius(size) * scale;
 
     double r(double v) => (v * 100).roundToDouble() / 100;
-    return {
+    final geometry = (
+      r(rect.left),
+      r(rect.top),
+      r(rect.width),
+      r(rect.height),
+      r(radius),
+    );
+    final cached = _described;
+    if (cached != null &&
+        geometry == _geometry &&
+        identical(widget.params, _params)) {
+      return cached;
+    }
+    _geometry = geometry;
+    _params = widget.params;
+    return _described = {
       ...widget.params,
       'id': id,
-      'x': r(rect.left),
-      'y': r(rect.top),
-      'w': r(rect.width),
-      'h': r(rect.height),
-      'cornerRadius': r(radius),
+      'x': geometry.$1,
+      'y': geometry.$2,
+      'w': geometry.$3,
+      'h': geometry.$4,
+      'cornerRadius': geometry.$5,
     };
   }
+
+  Map<String, Object?>? _described;
+  (double, double, double, double, double)? _geometry;
+  Map<String, Object?>? _params;
 
   @override
   Widget build(BuildContext context) => const SizedBox.expand();

@@ -1,13 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'glass_selection_bar.dart';
+import 'liquid_glass_service.dart';
 import 'liquid_glass_settings.dart';
 import 'liquid_glass_theme.dart';
+import 'native_tab_bar.dart';
 
 /// One tab of a [LiquidGlassNavigationBar].
 class LiquidGlassNavItem {
   /// Creates a tab.
-  const LiquidGlassNavItem({required this.icon, this.activeIcon, this.label});
+  const LiquidGlassNavItem({
+    required this.icon,
+    this.activeIcon,
+    this.label,
+    this.badge,
+  });
 
   /// Icon of the tab.
   final Widget icon;
@@ -17,6 +25,9 @@ class LiquidGlassNavItem {
 
   /// Text under the icon.
   final String? label;
+
+  /// Short text in a badge on the icon, such as a count. Null hides it.
+  final String? badge;
 }
 
 /// An iOS 26 glass tab bar with a sliding, stretching selection.
@@ -35,6 +46,9 @@ class LiquidGlassNavigationBar extends StatelessWidget {
     this.collapsed = false,
     this.onExpand,
     this.onReselect,
+    this.native = false,
+    this.badgeColor,
+    this.nativeFontAsset,
   }) : assert(items.length >= 2),
        assert(currentIndex >= 0 && currentIndex < items.length);
 
@@ -71,6 +85,56 @@ class LiquidGlassNavigationBar extends StatelessWidget {
   /// Called when the selected tab is tapped again.
   final ValueChanged<int>? onReselect;
 
+  /// Uses the system iOS 26 tab bar (`UITabBar`) on iOS with Liquid Glass.
+  ///
+  /// The whole bar, its icons and its lens are drawn natively, so Flutter
+  /// draws nothing on top of the native glass. That is the fastest option
+  /// for a bar pinned to the bottom of the screen, and it looks and behaves
+  /// exactly like the system tab bar. Place it at the bottom edge at full
+  /// width, for example as `Scaffold.bottomNavigationBar` with
+  /// `extendBody: true`.
+  ///
+  /// Icons must be [Icon] widgets. Elsewhere, and when an icon is not an
+  /// [Icon], the Flutter-drawn bar is used. [collapsed] is ignored by the
+  /// native bar.
+  final bool native;
+
+  /// Background colour of [LiquidGlassNavItem.badge].
+  final Color? badgeColor;
+
+  /// Font asset for labels of the native bar, such as `assets/font/x.otf`.
+  final String? nativeFontAsset;
+
+  List<NativeTab>? _nativeTabs() {
+    final tabs = <NativeTab>[];
+    for (final item in items) {
+      final icon = item.icon, active = item.activeIcon;
+      if (icon is! Icon || icon.icon == null) return null;
+      if (active != null && (active is! Icon || active.icon == null)) {
+        return null;
+      }
+      tabs.add(
+        NativeTab(
+          label: item.label ?? '',
+          icon: icon.icon!,
+          selectedIcon: (active as Icon?)?.icon,
+          badge: item.badge,
+        ),
+      );
+    }
+    return tabs;
+  }
+
+  Widget _withBadge(BuildContext context, Widget icon, String? badge) {
+    if (badge == null) return icon;
+    return Badge(
+      label: Text(badge),
+      backgroundColor: badgeColor,
+      offset: const Offset(10, -6),
+      child: icon,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -80,59 +144,93 @@ class LiquidGlassNavigationBar extends StatelessWidget {
 
     return LiquidGlassSettingsBuilder(
       settings: settings,
-      builder: (context, glass) => GlassSelectionBar(
-        count: items.length,
-        currentIndex: currentIndex,
-        onSelected: onTap,
-        height: height ?? (hasLabels ? 64.0 : 56.0),
-        padding: padding,
-        pillColor: inactive.withValues(alpha: 0.1),
-        semanticLabels: [for (final item in items) item.label],
-        settings: settings,
-        collapsed: collapsed && glass.collapseOnScroll,
-        onExpand: onExpand,
-        onReselected: onReselect,
-        itemBuilder: (context, i, selection, lift, collapse) {
-          final item = items[i];
-          final color = Color.lerp(inactive, active, selection)!;
-          final scale = 1 + 0.18 * lift.clamp(0.0, 1.0) * selection;
-          final labelOpacity = (1 - collapse * 2).clamp(0.0, 1.0);
+      builder: (context, glass) {
+        final tabs =
+            native &&
+                defaultTargetPlatform == TargetPlatform.iOS &&
+                LiquidGlassService.usesNativeLens(glass)
+            ? _nativeTabs()
+            : null;
+        if (tabs != null) {
+          return NativeTabBar(
+            tabs: tabs,
+            currentIndex: currentIndex,
+            onSelected: (index) =>
+                index == currentIndex ? onReselect?.call(index) : onTap(index),
+            dark: theme.brightness == Brightness.dark,
+            rtl: Directionality.of(context) == TextDirection.rtl,
+            selectedColor: active,
+            unselectedColor: inactiveColor,
+            badgeColor: badgeColor,
+            fontAsset: nativeFontAsset,
+          );
+        }
+        return _flutterBar(context, glass, active, inactive, hasLabels);
+      },
+    );
+  }
 
-          return Transform.scale(
-            scale: scale,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconTheme.merge(
-                  data: IconThemeData(color: color, size: 24),
-                  child: selection > 0.5
-                      ? (item.activeIcon ?? item.icon)
-                      : item.icon,
+  Widget _flutterBar(
+    BuildContext context,
+    LiquidGlassSettings glass,
+    Color active,
+    Color inactive,
+    bool hasLabels,
+  ) {
+    return GlassSelectionBar(
+      count: items.length,
+      currentIndex: currentIndex,
+      onSelected: onTap,
+      height: height ?? (hasLabels ? 64.0 : 56.0),
+      padding: padding,
+      pillColor: inactive.withValues(alpha: 0.1),
+      semanticLabels: [for (final item in items) item.label],
+      settings: settings,
+      collapsed: collapsed && glass.collapseOnScroll,
+      onExpand: onExpand,
+      onReselected: onReselect,
+      itemBuilder: (context, i, selection, lift, collapse) {
+        final item = items[i];
+        final color = Color.lerp(inactive, active, selection)!;
+        final scale = 1 + 0.18 * lift.clamp(0.0, 1.0) * selection;
+        final labelOpacity = (1 - collapse * 2).clamp(0.0, 1.0);
+
+        return Transform.scale(
+          scale: scale,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconTheme.merge(
+                data: IconThemeData(color: color, size: 24),
+                child: _withBadge(
+                  context,
+                  selection > 0.5 ? (item.activeIcon ?? item.icon) : item.icon,
+                  item.badge,
                 ),
-                if (item.label != null && labelOpacity > 0) ...[
-                  const SizedBox(height: 2),
-                  Opacity(
-                    opacity: labelOpacity,
-                    child: ExcludeSemantics(
-                      child: Text(
-                        item.label!,
-                        maxLines: 1,
-                        overflow: TextOverflow.fade,
-                        softWrap: false,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
+              ),
+              if (item.label != null && labelOpacity > 0) ...[
+                const SizedBox(height: 2),
+                Opacity(
+                  opacity: labelOpacity,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      item.label!,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

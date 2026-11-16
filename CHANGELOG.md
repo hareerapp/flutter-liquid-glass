@@ -1,5 +1,16 @@
 ## 0.4.3 — Native tab lens, bar buttons that hold the finger, adaptive icons
 
+- New `LiquidGlassNavigationBar(native: true)`: on iOS 26 the bar is the
+  real system tab bar (`UITabBar`), with icons, labels, lens and badges
+  drawn by iOS. Nothing is drawn by Flutter on top of the native glass, so
+  it renders as fast as a fully native bar (0.92 ms vs 1.53 ms at the 95th
+  percentile while scrolling, on an iPhone with iOS 27). Falls back to the
+  Flutter bar elsewhere.
+- `LiquidGlassNavItem.badge` shows a badge on both bars; `badgeColor` and
+  `nativeFontAsset` style it.
+- Glass groups reuse each member's description between frames instead of
+  rebuilding and comparing it every frame while scrolling.
+
 - Navigation bar and segmented control: icons and labels now stay sharp on
   top of the selection lens while it is dragged, like the iOS 26 tab bar.
   Before, the glass lens covered and blurred them.
