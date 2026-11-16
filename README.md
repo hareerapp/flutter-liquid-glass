@@ -26,7 +26,7 @@ components.
 
 ```yaml
 dependencies:
-  liquid_design: ^0.4.2
+  liquid_design: ^0.4.3
 ```
 
 ```dart
@@ -348,6 +348,48 @@ Change how far the finger may leave the glass with `dragExitDistance`
 const Icon(Icons.share).liquidGlass(dragExitDistance: double.infinity)
 ```
 
+#### App bar and header buttons
+
+Buttons in a bar should hold on to the finger like iOS 26 bar buttons, even
+when the header sits inside a scroll view. Use `captureDrag`, or
+`LiquidGlassPressDetector` for your own glass widgets:
+
+```dart
+LiquidGlassButton.icon(
+  captureDrag: true,
+  onPressed: openSearch,
+  icon: const Icon(Icons.search),
+)
+
+LiquidGlassPressDetector(
+  onPressed: goBack,
+  child: const SizedBox.square(dimension: 44, child: BackArrowIcon()),
+).liquidGlass(
+  shape: const LiquidGlassShape.circle(),
+  dragExitDistance: double.infinity,
+)
+```
+
+The press fires when the finger is lifted inside the button. Keep the plain
+button inside scrolling lists, so a vertical drag still scrolls the list.
+
+#### Icons that adapt to the background
+
+iOS 26 glass turns dark over dark content (a photo, a black banner) and
+light over light content, whatever the app theme. Icons and text inside the
+glass that use the default colour switch to white or black with it. Icons
+with their own colour can follow it too:
+
+```dart
+Icon(
+  Icons.arrow_back,
+  color: LiquidGlassAppearance.adapt(context, colors.textPrimary),
+)
+```
+
+`LiquidGlassAppearance.maybeOf(context)` gives the live appearance, and
+`adaptiveForeground: false` on `LiquidGlass` keeps colours unchanged.
+
 ### Segmented control
 
 <p align="center"><img src="https://raw.githubusercontent.com/hareerapp/fluter-liquid-glass/main/doc/readme/segmented.png" width="600" alt="Segmented control with a glass selection"></p>
@@ -430,7 +472,48 @@ LiquidGlassNavigationBar(
 ```
 
 The selection pill slides with a liquid stretch. Pressing lifts it into a
-glass lens that follows the finger (with haptic ticks) and snaps on release.
+glass lens that follows the finger (with haptic ticks) and snaps on release. Icons and labels stay
+sharp on top of the lens, like the iOS 26 tab bar.
+
+#### System tab bar (fastest)
+
+Set `native: true` and, on iOS 26, the bar becomes the real system tab bar
+(`UITabBar`): glass, lens, icons, labels and badges are all drawn by iOS,
+and Flutter draws nothing on top of the native glass. It scrolls as fast as
+a fully native bar and behaves exactly like the system one. Elsewhere it
+falls back to the Flutter bar above.
+
+```dart
+Scaffold(
+  extendBody: true,
+  body: ListView(/* ... */),
+  bottomNavigationBar: LiquidGlassNavigationBar(
+    native: true,
+    currentIndex: tab,
+    onTap: (i) => setState(() => tab = i),
+    items: const [
+      LiquidGlassNavItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+      LiquidGlassNavItem(icon: Icon(Icons.shopping_bag), label: 'Cart', badge: '3'),
+    ],
+  ),
+)
+```
+
+Place it at the bottom edge at full width. Icons must be `Icon` widgets;
+`badge`, `activeColor`, `inactiveColor`, `badgeColor` and `nativeFontAsset`
+are passed to iOS.
+
+Scrolling a 400-item list on an iPhone with iOS 27 (profile build, 95th
+percentile of three runs, 120 Hz):
+
+| Bar | Frame build | Rendering |
+|---|---|---|
+| `adaptive_platform_ui` native tab bar | 1.04 ms | 0.98 ms |
+| `LiquidGlassNavigationBar` (Flutter bar) | 1.03 ms | 1.53 ms |
+| `LiquidGlassNavigationBar(native: true)` | **1.01 ms** | **0.92 ms** |
+
+The Flutter bar costs more to render because its icons are drawn on top of
+the native glass; use it when you need a custom look.
 
 #### Icons only
 

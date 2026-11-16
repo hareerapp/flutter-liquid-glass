@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'liquid_glass.dart';
+import 'liquid_glass_appearance.dart';
+import 'liquid_glass_press_detector.dart';
 import 'liquid_glass_service.dart';
 import 'liquid_glass_settings.dart';
 import 'liquid_glass_shape.dart';
@@ -26,6 +28,7 @@ class LiquidGlassButton extends StatelessWidget {
     this.shape,
     this.semanticLabel,
     this.settings,
+    this.captureDrag = false,
   }) : _circle = false;
 
   /// A round button with an [icon].
@@ -40,6 +43,7 @@ class LiquidGlassButton extends StatelessWidget {
     double size = 48,
     this.semanticLabel,
     this.settings,
+    this.captureDrag = false,
   }) : child = icon,
        padding = EdgeInsets.zero,
        minSize = size,
@@ -51,6 +55,14 @@ class LiquidGlassButton extends StatelessWidget {
 
   /// Called on long press.
   final VoidCallback? onLongPress;
+
+  /// Holds on to the finger like an iOS 26 bar button.
+  ///
+  /// The button claims the touch at once, so an enclosing scroll view never
+  /// takes the drag, and the glass keeps following and stretching with the
+  /// finger until it is lifted. It presses when lifted inside the button.
+  /// Use it for buttons in app bars and headers, not inside scrolling lists.
+  final bool captureDrag;
 
   /// Content of the button.
   final Widget child;
@@ -121,16 +133,25 @@ class LiquidGlassButton extends StatelessWidget {
             child: Center(
               widthFactor: _circle ? null : 1,
               heightFactor: _circle ? null : 1,
-              child: IconTheme.merge(
-                data: IconThemeData(color: fg, size: 22),
-                child: DefaultTextStyle.merge(
-                  style: TextStyle(
-                    color: fg,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                  child: child,
-                ),
+              child: Builder(
+                builder: (context) {
+                  final color =
+                      style == LiquidGlassButtonStyle.glass &&
+                          foregroundColor == null
+                      ? LiquidGlassAppearance.adapt(context, fg)
+                      : fg;
+                  return IconTheme.merge(
+                    data: IconThemeData(color: color, size: 22),
+                    child: DefaultTextStyle.merge(
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                      child: child,
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -164,11 +185,20 @@ class LiquidGlassButton extends StatelessWidget {
                 interactive: _enabled,
                 tintColor: tint,
                 tintOpacity: tintOpacity,
-                child: _DragTolerantTap(
-                  onTap: onPressed,
-                  onLongPress: onLongPress,
-                  child: content,
-                ),
+                dragExitDistance: captureDrag
+                    ? double.infinity
+                    : LiquidGlass.defaultDragExitDistance,
+                child: captureDrag
+                    ? LiquidGlassPressDetector(
+                        onPressed: onPressed,
+                        onLongPress: onLongPress,
+                        child: content,
+                      )
+                    : _DragTolerantTap(
+                        onTap: onPressed,
+                        onLongPress: onLongPress,
+                        child: content,
+                      ),
               ),
             ),
           ),
